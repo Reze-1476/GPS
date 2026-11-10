@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Como funciona — Dashboard de Sensores</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">SENSORES·LIVE</span>
+    <a href="index.html">Dashboard</a>
+    <a href="explicacao.html" class="active">Como funciona</a>
+    <button id="themeToggle" class="theme-switch" type="button">White mode</button>
+  </nav>
+
+  <main class="prose">
+    <div class="hero">
+      <h1>Como o <span>GPS do celular</span> funciona</h1>
+      <div class="sub">Dos satélites até os números que aparecem no dashboard.</div>
+    </div>
+
+    <div class="flow">
+      <div><b>Satélites</b>sinal + hora exata</div><div class="arrow">→</div>
+      <div><b>Chip GNSS</b>mede o tempo de viagem</div><div class="arrow">→</div>
+      <div><b>Sistema</b>funde GPS + Wi-Fi + torres</div><div class="arrow">→</div>
+      <div><b>Navegador</b>Geolocation API</div><div class="arrow">→</div>
+      <div><b>Dashboard</b>lat, lon, accuracy…</div>
+    </div>
+
+    <h2>1. A ideia central: distância = tempo × velocidade da luz</h2>
+    <p>Cada satélite GPS carrega um relógio atômico e transmite continuamente uma mensagem de rádio com dois dados: <strong>a hora exata em que o sinal saiu</strong> e <strong>a posição do próprio satélite</strong> (efemérides). O receptor no aparelho anota a hora de chegada e calcula:</p>
+    <pre>distância = (hora_de_chegada − hora_de_saída) × 299.792.458 m/s</pre>
+    <p>O sinal leva cerca de 67 ms para chegar. Um erro de apenas 1 microssegundo no relógio já equivale a ~300 metros, por isso a sincronização é tão crítica.</p>
+
+    <h2>2. Trilateração: de distâncias a coordenadas</h2>
+    <ol class="steps">
+      <li><strong>1 satélite</strong> — o aparelho está em algum ponto de uma esfera ao redor dele.</li>
+      <li><strong>2 satélites</strong> — a interseção de duas esferas é um círculo.</li>
+      <li><strong>3 satélites</strong> — a interseção cai em apenas dois pontos; um deles fica no espaço e é descartado. Resulta em latitude e longitude.</li>
+      <li><strong>4 ou mais satélites</strong> — o relógio do celular é barato e impreciso, então ele vira uma incógnita extra. Com 4 equações resolvem-se 4 incógnitas: <em>latitude, longitude, altitude e erro do relógio</em>.</li>
+    </ol>
+    <p>É por isso que a <strong>altitude</strong> costuma aparecer como "não informado" quando há poucos satélites visíveis, e por isso ela é menos precisa que a posição horizontal.</p>
+
+    <h2>3. Como isso aparece na Geolocation API</h2>
+    <p>O navegador pede a posição ao sistema operacional, que consulta o chip de localização e devolve um objeto <code>coords</code>:</p>
+    <div class="table-wrap"><table>
+      <tr><th>Campo da API</th><th>O que representa</th><th>Origem física</th></tr>
+      <tr><td><code>latitude</code>, <code>longitude</code></td><td>Posição em graus (sistema WGS 84)</td><td>Solução da trilateração</td></tr>
+      <tr><td><code>altitude</code></td><td>Altura em metros</td><td>4º satélite (ou barômetro, em alguns aparelhos)</td></tr>
+      <tr><td><code>accuracy</code></td><td>Raio de incerteza horizontal, em metros, com ~68% de confiança</td><td>Geometria dos satélites (DOP) e qualidade do sinal</td></tr>
+      <tr><td><code>altitudeAccuracy</code></td><td>Incerteza da altitude</td><td>Idem, no eixo vertical</td></tr>
+      <tr><td><code>speed</code></td><td>Velocidade em m/s (o dashboard converte para km/h)</td><td>Efeito Doppler nos sinais dos satélites</td></tr>
+      <tr><td><code>heading</code></td><td>Direção do movimento</td><td>Doppler ou variação entre posições</td></tr>
+          </table></div>
+    <p>Isso é o que se entende por "dado bruto": o dashboard mostra o que o hardware reporta, sem mapa, rota ou suavização de apps comerciais.</p>
+
+    <h2>4. Por que a precisão varia tanto? (DOP)</h2>
+    <p>Satélites muito próximos entre si no céu geram esferas que se cruzam em ângulo raso, deixando a interseção "borrada". Isso se chama <em>Diluição de Precisão</em> (DOP). Dentro de um prédio, paredes bloqueiam e refletem o sinal (multipercurso), reduzindo o número de satélites e aumentando o erro — por isso a precisão pode chegar a 50–100 m ou mais.</p>
+
+    <h2>5. A-GPS: ajuda das redes terrestres</h2>
+    <p>Um receptor GPS "frio" precisa baixar a mensagem dos satélites a 50 bits/s, o que pode levar de 30 segundos a vários minutos. O <strong>A-GPS (GPS Assistido)</strong> acelera e melhora isso usando a internet:</p>
+    <ul>
+      <li><strong>Dados de assistência:</strong> um servidor entrega efemérides e hora precisa pela rede celular/Wi-Fi, reduzindo o tempo até a primeira posição (TTFF) para poucos segundos.</li>
+      <li><strong>Posicionamento por Wi-Fi:</strong> o aparelho envia a lista de redes Wi-Fi próximas (BSSIDs) e a intensidade do sinal a um serviço que mantém um banco de dados com a localização conhecida desses roteadores. Funciona dentro de prédios, onde o satélite não chega.</li>
+      <li><strong>Torres de celular:</strong> a identificação das antenas visíveis dá uma estimativa grosseira (centenas de metros a quilômetros).</li>
+    </ul>
+    <p>O sistema operacional <em>funde</em> todas essas fontes (fusão de sensores) e devolve uma única posição. Quando você liga o Wi-Fi e o campo <strong>Precisão</strong> cai de dezenas para poucos metros, é essa fusão acontecendo.</p>
+
+    <div class="table-wrap"><table>
+      <tr><th>Fonte</th><th>Precisão típica</th><th>Funciona em ambiente fechado?</th></tr>
+      <tr><td>GPS (satélites)</td><td>3 – 10 m (céu aberto)</td><td>Mal</td></tr>
+      <tr><td>Wi-Fi</td><td>5 – 30 m</td><td>Sim</td></tr>
+      <tr><td>Torres de celular</td><td>100 m – 3 km</td><td>Sim</td></tr>
+      <tr><td>Endereço IP</td><td>1 km – cidade inteira</td><td>Sim</td></tr>
+    </table></div>
+
+    <h2>6. Computador x celular</h2>
+    <p>Notebooks e desktops em geral <strong>não têm chip GPS</strong>. O navegador usa Wi-Fi e endereço IP, então a precisão é menor e campos como altitude e velocidade vêm vazios. Também não há bússola nem acelerômetro, e o dashboard avisa quando esses dados não chegam. Por isso a demonstração do A-GPS é mais convincente em um celular.</p>
+
+    <h2>7. Bússola e acelerômetro</h2>
+    <p>Estes sensores <strong>não fazem parte do GPS</strong>, mas complementam a localização (navegação por estima, orientação do mapa). São MEMS: microestruturas que se deslocam e geram sinal elétrico.</p>
+    <div class="table-wrap"><table>
+      <tr><th>Dado</th><th>Sensor</th><th>Significado</th></tr>
+      <tr><td><code>alpha</code></td><td>Magnetômetro + giroscópio</td><td>Rotação em torno do eixo vertical (0–360°); base da bússola</td></tr>
+      <tr><td><code>beta</code></td><td>Giroscópio / acelerômetro</td><td>Inclinação para frente e para trás (−180° a 180°)</td></tr>
+      <tr><td><code>gamma</code></td><td>Giroscópio / acelerômetro</td><td>Inclinação lateral (−90° a 90°)</td></tr>
+      <tr><td><code>accelerationIncludingGravity</code></td><td>Acelerômetro</td><td>Aceleração em m/s² nos eixos X, Y e Z. Parado sobre uma mesa, o módulo fica perto de 9,8 m/s² (a gravidade)</td></tr>
+          </table></div>
+    <p>No iOS, o navegador exige uma permissão explícita para esses sensores; por isso o botão "Iniciar sensores" precisa ser tocado.</p>
+
+    <h2>8. Limitações</h2>
+    <ul>
+      <li>A Geolocation API só funciona em <strong>HTTPS</strong> (ou <code>localhost</code>) e com permissão do usuário.</li>
+      <li>O navegador <strong>não informa qual fonte</strong> foi usada; o dashboard apenas estima a provável a partir da precisão.</li>
+      <li>O valor de <code>accuracy</code> é uma estimativa do próprio sistema, não um erro medido.</li>
+      <li>Os dados dependem do aparelho, do sistema operacional e do ambiente — resultados diferem entre celulares.</li>
+    </ul>
+
+    <script>
+      function applyTheme(theme) {
+        const isLight = theme === 'light';
+        document.body.classList.toggle('light-theme', isLight);
+        const btn = document.getElementById('themeToggle');
+        if (btn) btn.textContent = isLight ? 'Dark mode' : 'White mode';
+        localStorage.setItem('sensor-theme', isLight ? 'light' : 'dark');
+      }
+
+      const savedTheme = localStorage.getItem('sensor-theme') ?? 'dark';
+      applyTheme(savedTheme);
+      const themeToggle = document.getElementById('themeToggle');
+      themeToggle?.addEventListener('click', () => {
+        const nextTheme = document.body.classList.contains('light-theme') ? 'dark' : 'light';
+        applyTheme(nextTheme);
+      });
+    </script>
+
+    <p><a href="index.html">← Voltar ao dashboard</a></p>
+  </main>
+</body>
+</html>
