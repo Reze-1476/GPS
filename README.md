@@ -32,7 +32,7 @@ Abra `http://localhost:8000` no computador. Para testar no celular, publique (ab
 
 ## Roteiro da demonstração (A-GPS)
 
-1. A banca abre o link no celular e toca em **Iniciar sensores**, permitindo a localização.
+1. Abrir o link no celular e toca em **Iniciar sensores**, permitindo a localização.
 2. Com o **Wi-Fi desligado**, observe o campo **Precisão** (valor alto, ex.: 50–100 m dentro da sala).
 3. Peça para **ativar o Wi-Fi**: a precisão deve cair para ~5–20 m, mostrando o A-GPS (satélite + redes terrestres).
 4. O histórico no fim da página registra a evolução da precisão.
