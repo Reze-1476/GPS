@@ -151,7 +151,7 @@
       link.href = `https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`;
       link.hidden = false;
 
-      if (c.heading !== null && !Number.isNaN(c.heading)) setHeading(c.heading);
+      if (!compassActive && c.heading !== null && !Number.isNaN(c.heading)) setHeading(c.heading);
 
       const line = document.createElement('div');
       line.textContent = `${t} — precisão ${fmt(c.accuracy, 1)} m`;
@@ -169,9 +169,23 @@
       if (err.code === 1) stop();
     }
 
+    // Ângulo acumulado (sem salto 359→0) com filtro passa-baixa e zona morta contra ruído do sensor
+    let shownHeading = null;
+    let compassActive = false;
+    const HEADING_SMOOTH = 0.2;
+    const HEADING_DEADBAND = 1.5;
+
     function setHeading(deg) {
-      $('heading').innerHTML = fmt(deg, 0) + '°';
-      $('needle').style.transform = `rotate(${-deg}deg)`;
+      if (shownHeading === null) {
+        shownHeading = deg;
+      } else {
+        const d = ((deg - shownHeading) % 360 + 540) % 360 - 180;
+        if (Math.abs(d) < HEADING_DEADBAND) return;
+        shownHeading += d * HEADING_SMOOTH;
+      }
+      const norm = ((Math.round(shownHeading) % 360) + 360) % 360;
+      $('heading').innerHTML = norm + '°';
+      $('needle').style.transform = `rotate(${-shownHeading}deg)`;
     }
 
     function onOrientation(e) {
@@ -180,9 +194,13 @@
       $('alpha').textContent = fmt(e.alpha, 1) + '°';
       $('beta').textContent = fmt(e.beta, 1) + '°';
       $('gamma').textContent = fmt(e.gamma, 1) + '°';
-      if (e.webkitCompassHeading !== undefined) {
-        setHeading(e.webkitCompassHeading); // iOS
+      if (typeof e.webkitCompassHeading === 'number') {
+        // iOS: accuracy negativa indica bússola não calibrada
+        if (e.webkitCompassAccuracy < 0) return;
+        compassActive = true;
+        setHeading(e.webkitCompassHeading);
       } else if (e.absolute && e.alpha !== null) {
+        compassActive = true;
         setHeading((360 - e.alpha) % 360); // Android
       }
     }
